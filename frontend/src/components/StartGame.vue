@@ -27,12 +27,29 @@ export default {
     return {
       selectedGenre: '',
       genres: [
-        'Grunge',
         'Alternative Rock',
-        'Metal',
         'Psychedelic Rock',
+        'Classic Rock',
+        'Grunge',
+        'Metal',
+        'Nu Metal',
+        'New Wave',
+        'Shoegaze',
+        'Indie Rock',
         'Hip Hop'
       ],
+      genreMap: {
+        'Grunge': 152,
+        'Alternative Rock': 152,
+        'Metal': 464,
+        'Psychedelic Rock': 152,
+        'Hip Hop': 116,
+        'Classic Rock': 152,
+        'New Wave': 132,
+        'Shoegaze': 85,
+        'Indie Rock': 85,
+        'Nu Metal': 464
+      },
       gameSessionId: null,
     };
   },
@@ -52,8 +69,10 @@ export default {
 
         this.$emit('started', {
           genre: this.selectedGenre,
+          deezerGenreId: this.genreMap[this.selectedGenre],
           gameSessionId: this.gameSessionId,
         });
+
       } catch (err) {
         console.error("Failed to start game:", err);
         alert("Something went wrong.");

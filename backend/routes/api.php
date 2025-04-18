@@ -2,6 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\DeezerController;
+
+Route::get('/deezer/song', [DeezerController::class, 'getSong']);
+
 
 Route::get('/ping', function () {
     return response()->json(['message' => 'pong']);
@@ -37,9 +41,16 @@ Route::post('/game/start', function (\Illuminate\Http\Request $request) {
 Route::post('/guess', function (\Illuminate\Http\Request $request) {
     $data = $request->all();
 
-    $song = DB::table('songs')->where('id', $data['song_id'])->first();
+    if (!isset($data['song_id'])) {
+        return response()->json(['error' => 'Missing song_id'], 400);
+    }
 
-    // 🧠 Determine score multiplier based on snippet duration
+    $song = DB::table('songs')->find($data['song_id']);
+
+    if (!$song) {
+        return response()->json(['error' => 'Song not found'], 404);
+    }
+
     $duration = isset($data['snippet_duration']) ? (int) $data['snippet_duration'] : 60;
 
     $multiplier = match ($duration) {
@@ -49,7 +60,6 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         default => 1
     };
 
-    // 🎯 Compare and score each guess field
     $points = 0;
 
     if (strtolower(trim($data['guessed_title'])) === strtolower($song->title)) {
@@ -65,9 +75,8 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         $points += 1 * $multiplier;
     }
 
-    $points = round($points); // Round to nearest whole number
+    $points = round($points);
 
-    // 💾 Save the guess
     DB::table('guesses')->insert([
         'game_session_id' => $data['game_session_id'],
         'song_id' => $data['song_id'],
@@ -80,7 +89,6 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         'updated_at' => now(),
     ]);
 
-    // ➕ Update session score
     DB::table('game_sessions')
         ->where('id', $data['game_session_id'])
         ->increment('score', $points);
@@ -103,3 +111,5 @@ Route::get('/game/score/{game_session_id}', function ($game_session_id) {
 
     return response()->json(['score' => $score]);
 });
+
+

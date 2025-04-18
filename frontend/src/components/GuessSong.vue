@@ -72,7 +72,8 @@ import axios from 'axios';
 
 export default {
   name: 'GuessSong',
-  props: ['genre', 'gameSessionId'],
+  props: ['genre', 'deezerGenreId', 'gameSessionId'],
+
   data() {
     return {
       song: null,
@@ -93,52 +94,32 @@ export default {
   },
   computed: {
     audioUrl() {
-      return `http://127.0.0.1:8000/${this.song?.audio_snippet}`;
+      return this.song?.audio_snippet || '';
     }
+
   },
   mounted() {
-    this.fetchRandomSong();
+    this.fetchRandomDeezerSong();
   },
   methods: {
-    async fetchRandomSong() {
+    async fetchRandomDeezerSong(genreId = 152) {
       try {
-        let attempts = 0;
-        let newSong = null;
+        const res = await fetch(`http://localhost:8000/api/deezer/song?genre_id=${genreId}`);
+        const song = await res.json();
 
-        while (attempts < 5) {
-          const res = await axios.get('http://127.0.0.1:8000/api/songs/random', {
-            params: {
-              genre: this.genre,
-              exclude: this.usedSongIds.join(',')
-            }
-          });
-
-          newSong = res.data;
-
-          if (!newSong || this.usedSongIds.includes(newSong.id)) {
-            attempts++;
-            continue;
-          }
-
-          break;
-        }
-
-        if (!newSong || !newSong.audio_snippet) {
-          alert("No more songs found for this genre.");
+        if (song.error) {
+          alert(song.error);
           return;
         }
 
-        // Stop currently playing song
-        if (this.song) {
-          const audio = this.$refs.audioPlayer;
-          if (audio) {
-            audio.pause();
-            audio.currentTime = 0;
-          }
-        }
-
-        this.song = newSong;
-        this.usedSongIds.push(newSong.id);
+        this.song = {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          release_year: song.release_date ? new Date(song.release_date).getFullYear() : 'Unknown',
+          audio_snippet: song.preview
+        };
 
         this.$nextTick(() => {
           const audio = this.$refs.audioPlayer;
@@ -149,20 +130,8 @@ export default {
         });
 
       } catch (err) {
-        console.error('Error fetching song:', err);
-        alert('Failed to load song. Please try again.');
-      }
-    },
-
-    handlePlay() {
-      const audio = this.$refs.audioPlayer;
-      if (audio) {
-        audio.currentTime = 0;
-        setTimeout(() => {
-          if (!audio.paused && audio.currentTime >= this.snippetDuration) {
-            audio.pause();
-          }
-        }, this.snippetDuration * 1000);
+        console.error('Failed to fetch song from Laravel API:', err);
+        alert('Could not load song. Please try again.');
       }
     },
 
@@ -186,7 +155,8 @@ export default {
 
       if (this.round > this.maxRounds) return;
 
-      await this.fetchRandomSong();
+      await this.fetchRandomDeezerSong();
+
     },
 
     async submitGuess() {

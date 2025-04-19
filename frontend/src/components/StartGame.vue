@@ -38,18 +38,17 @@ export default {
         'Indie Rock',
         'Hip Hop'
       ],
-      genreMap: {
-        'Grunge': 152,
-        'Alternative Rock': 152,
-        'Metal': 464,
-        'Psychedelic Rock': 152,
-        'Hip Hop': 116,
-        'Classic Rock': 152,
-        'New Wave': 132,
-        'Shoegaze': 85,
-        'Indie Rock': 85,
-        'Nu Metal': 464
-      },
+        genreMap: {
+          'Grunge': 152,
+          'Metal': 464,
+          'Hip Hop': 116,
+          'Shoegaze': 85,
+          'New Wave': 132,
+          'Classic Rock': 77,
+          'Alternative Rock': 1521,
+          'Indie Rock': 999,
+          'Nu Metal': 888
+        },
       gameSessionId: null,
     };
   },
@@ -66,6 +65,7 @@ export default {
         });
 
         this.gameSessionId = res.data.game_session_id;
+
 
         this.$emit('started', {
           genre: this.selectedGenre,

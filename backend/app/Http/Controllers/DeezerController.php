@@ -9,35 +9,54 @@ class DeezerController extends Controller
 {
     public function getSong(Request $request)
     {
-        $genreId = $request->input('genre_id', '152'); // Default: Rock
+        $genre = $request->query('genre');
 
-        // Get artists for the genre
-        $artistsResponse = Http::get("https://api.deezer.com/genre/{$genreId}/artists");
+        $genreArtists = [
+            'Alternative Rock' => ['Red Hot Chili Peppers', 'Radiohead', 'Smashing Pumpkins', 'Foo Fighters', 'Jeff Buckley'],
+            'Psychedelic Rock' => ['Jimi Hendrix', 'Pink Floyd', 'Jefferson Airplane', 'The Doors', 'The Beatles'],
+            'Classic Rock' => ['Led Zeppelin', 'Queen', 'David Bowie', 'The Rolling Stones', 'Fleetwood Mac'],
+            'Grunge' => ['Alice in Chains', 'Nirvana', 'Soundgarden', 'Pearl Jam', 'Stone Temple Pilots'],
+            'Metal' => ['Metallica', 'Black Sabbath', 'Pantera', 'Megadeth', 'Slayer'],
+            'Nu Metal' => ['Korn', 'Slipknot', 'System of a Down', 'Linkin Park', 'Limp Bizkit'],
+            'New Wave' => ['Talking Heads', 'Eurythmics', 'Blondie', 'Depeche Mode', 'The Cure'],
+            'Shoegaze' => ['My Bloody Valentine', 'Cocteau Twins', 'Slowdive', 'Deftones', 'TV Girl'],
+            'Indie Rock' => ['Oasis', 'Blur', 'The Strokes', 'The Pixies', 'Arctic Monkeys'],
+            'Hip Hop' => ['Souls of Mischief', 'A Tribe Called Quest', 'Nas', 'MF DOOM', 'Wu-Tang Clan'],
+        ];
 
-        if (!$artistsResponse->ok() || empty($artistsResponse['data'])) {
-            return response()->json(['error' => 'No artists found'], 404);
+        if (!isset($genreArtists[$genre])) {
+            return response()->json(['error' => 'Genre not supported'], 400);
         }
 
-        $artists = $artistsResponse['data'];
-        $randomArtist = $artists[array_rand($artists)];
+        $randomArtist = collect($genreArtists[$genre])->random();
 
-        // Get top tracks from the artist
-        $tracksResponse = Http::get("https://api.deezer.com/artist/{$randomArtist['id']}/top?limit=10");
+        // Step 1: Search for the artist
+        $artistSearch = Http::get("https://api.deezer.com/search/artist?q=" . urlencode($randomArtist));
+        $artistData = $artistSearch->json()['data'][0] ?? null;
 
-        if (!$tracksResponse->ok() || empty($tracksResponse['data'])) {
-            return response()->json(['error' => 'No tracks found'], 404);
+        if (!$artistData) {
+            return response()->json(['error' => 'Artist not found on Deezer'], 404);
         }
 
-        $tracks = $tracksResponse['data'];
-        $randomTrack = $tracks[array_rand($tracks)];
+        $artistId = $artistData['id'];
+
+        // Step 2: Get top tracks
+        $topTracksResponse = Http::get("https://api.deezer.com/artist/{$artistId}/top?limit=10");
+        $topTracks = $topTracksResponse->json()['data'] ?? [];
+
+        if (empty($topTracks)) {
+            return response()->json(['error' => 'No top tracks found for artist'], 404);
+        }
+
+        $track = collect($topTracks)->random();
 
         return response()->json([
-            'id' => $randomTrack['id'],
-            'title' => $randomTrack['title'],
-            'artist' => $randomTrack['artist']['name'],
-            'album' => $randomTrack['album']['title'],
-            'preview' => $randomTrack['preview'],
-            'release_date' => $randomTrack['release_date'] ?? null,
+            'id' => $track['id'],
+            'title' => $track['title'],
+            'artist' => $track['artist']['name'],
+            'album' => $track['album']['title'],
+            'release_date' => $track['release_date'] ?? null,
+            'preview' => $track['preview'],
         ]);
     }
 }

@@ -6,10 +6,11 @@
 
         <label class="block mb-2 font-semibold">Choose your snippet length:</label>
         <select v-model="snippetDuration" class="mb-4 p-2 border rounded">
-          <option :value="10">10 seconds (Hard)</option>
-          <option :value="30">30 seconds (Medium)</option>
-          <option :value="60">1 minute (Easy)</option>
+          <option :value="5">5 seconds (Hard)</option>
+          <option :value="15">15 seconds (Medium)</option>
+          <option :value="30">30 seconds (Easy)</option>
         </select>
+
 
         <audio
           ref="audioPlayer"
@@ -74,6 +75,7 @@ export default {
   name: 'GuessSong',
   props: ['genre', 'deezerGenreId', 'gameSessionId'],
 
+
   data() {
     return {
       song: null,
@@ -99,12 +101,23 @@ export default {
 
   },
   mounted() {
+    console.log("received in GuessSong:", {
+      genre: this.genre,
+      deezerGenreId: this.deezerGenreId,
+      gameSessionId: this.gameSessionId
+    });
+
     this.fetchRandomDeezerSong();
   },
   methods: {
-    async fetchRandomDeezerSong(genreId = 152) {
+    async fetchRandomDeezerSong() {
+      const genreId = this.deezerGenreId;
+      const genreName = this.genre;
+
+      console.log("Fetching with genreId:", genreId, "and genre:", genreName);
+
       try {
-        const res = await fetch(`http://localhost:8000/api/deezer/song?genre_id=${genreId}`);
+        const res = await fetch(`http://127.0.0.1:8000/api/deezer/song?genre_id=${genreId}&genre=${encodeURIComponent(genreName)}`);
         const song = await res.json();
 
         if (song.error) {
@@ -117,8 +130,8 @@ export default {
           title: song.title,
           artist: song.artist,
           album: song.album,
-          release_year: song.release_date ? new Date(song.release_date).getFullYear() : 'Unknown',
-          audio_snippet: song.preview
+          release_year: song.release_year,
+          audio_snippet: song.audio_snippet
         };
 
         this.$nextTick(() => {
@@ -135,14 +148,6 @@ export default {
       }
     },
 
-    checkTime() {
-      const audio = this.$refs.audioPlayer;
-      if (audio && audio.currentTime >= this.snippetDuration) {
-        audio.pause();
-        audio.currentTime = 0;
-      }
-    },
-
     async nextSong() {
       this.round++;
       this.guess = {
@@ -155,7 +160,8 @@ export default {
 
       if (this.round > this.maxRounds) return;
 
-      await this.fetchRandomDeezerSong();
+      await this.fetchRandomDeezerSong(this.deezerGenreId);
+
 
     },
 
@@ -165,7 +171,10 @@ export default {
           game_session_id: this.gameSessionId,
           song_id: this.song.id,
           snippet_duration: this.snippetDuration,
-          ...this.guess
+          guessed_title: this.guess.guessed_title,
+          guessed_artist: this.guess.guessed_artist,
+          guessed_album: this.guess.guessed_album,
+          guessed_year: this.guess.guessed_year
         });
 
         this.result = res.data;

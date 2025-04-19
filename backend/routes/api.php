@@ -2,28 +2,98 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\DeezerController;
-
-Route::get('/deezer/song', [DeezerController::class, 'getSong']);
+use Illuminate\Support\Facades\Http;
 
 
-Route::get('/ping', function () {
-    return response()->json(['message' => 'pong']);
-});
+Route::get('/deezer/song', function (\Illuminate\Http\Request $request) {
+    $genreId = $request->query('genre_id');
 
-Route::get('/songs/random', function (\Illuminate\Http\Request $request) {
-    $genre = $request->query('genre');
+    $artistLists = [
+        152 => ['Nirvana', 'Alice In Chains', 'Pearl Jam', 'Soundgarden', 'Stone Temple Pilots'],
+        464 => ['Metallica', 'Black Sabbath', 'Pantera', 'Megadeth', 'Slayer'],
+        116 => ['Nas', 'MF DOOM', 'Wu-Tang Clan', 'A Tribe Called Quest', 'Souls of Mischief'],
+        85  => ['My Bloody Valentine', 'Cocteau Twins', 'Slowdive', 'Deftones', 'TV Girl'],
+        132 => ['Talking Heads', 'Eurythmics', 'Blondie', 'Depeche Mode', 'The Cure'],
+        77  => ['Led Zeppelin', 'Queen', 'David Bowie', 'The Rolling Stones', 'Fleetwood Mac'],
+        1521 => ['Red Hot Chili Peppers', 'Radiohead', 'Smashing Pumpkins', 'Foo Fighters', 'Jeff Buckley'],
+        999 => ['Oasis', 'Blur', 'The Strokes', 'The Pixies', 'Arctic Monkeys'],
+        888 => ['Korn', 'Slipknot', 'System of a Down', 'Linkin Park', 'Limp Bizkit'],
+    ];
 
-    $query = DB::table('songs');
-
-    if ($genre) {
-        $query->where('genre', $genre);
+    if (!$genreId || !isset($artistLists[$genreId])) {
+        return response()->json(['error' => 'Invalid or missing genre_id'], 400);
     }
 
-    $song = $query->inRandomOrder()->first();
+    $genreName = $request->query('genre') ?? 'Unknown';
 
-    return response()->json($song);
+    $artists = $artistLists[$genreId];
+    $randomArtist = $artists[array_rand($artists)];
+
+    // Step 1: Search for artist ID
+    $artistSearch = Http::get('https://api.deezer.com/search/artist', [
+        'q' => $randomArtist
+    ]);
+
+    $artistData = $artistSearch->json()['data'][0] ?? null;
+
+    if (!$artistData || empty($artistData['id'])) {
+        return response()->json(['error' => 'Artist not found on Deezer'], 404);
+    }
+
+    $artistId = $artistData['id'];
+
+    // Step 2: Get top songs by that artist
+    $songSearch = Http::get("https://api.deezer.com/artist/$artistId/top?limit=20");
+
+    $results = $songSearch->json()['data'] ?? [];
+
+    if (empty($results)) {
+        return response()->json(['error' => 'No songs found for artist'], 404);
+    }
+
+    $song = $results[array_rand($results)];
+
+    if (
+        empty($song['title']) || empty($song['artist']['name']) ||
+        empty($song['album']['title']) || empty($song['preview'])
+    ) {
+        return response()->json(['error' => 'Incomplete song data from Deezer'], 422);
+    }
+
+    $existing = DB::table('songs')->where('title', $song['title'])->where('artist', $song['artist']['name'])->first();
+
+    if (!$existing) {
+        $songId = DB::table('songs')->insertGetId([
+            'title' => $song['title'],
+            'artist' => $song['artist']['name'],
+            'album' => $song['album']['title'],
+            'release_year' => substr($song['release_date'] ?? '2000', 0, 4),
+            'audio_snippet' => $song['preview'],
+            'genre' => $genreName,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    } else {
+        $songId = $existing->id;
+    }
+
+    return response()->json([
+        'id' => $songId,
+        'title' => $song['title'],
+        'artist' => $song['artist']['name'],
+        'album' => $song['album']['title'],
+        'release_year' => substr($song['release_date'] ?? '2000', 0, 4),
+        'audio_snippet' => $song['preview']
+    ]);
 });
+
+
+
+
+
+
+Route::get('/ping', fn() => response()->json(['message' => 'pong']));
+
 
 Route::post('/game/start', function (\Illuminate\Http\Request $request) {
     $genre = $request->input('genre');
@@ -46,34 +116,24 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
     }
 
     $song = DB::table('songs')->find($data['song_id']);
-
     if (!$song) {
         return response()->json(['error' => 'Song not found'], 404);
     }
 
-    $duration = isset($data['snippet_duration']) ? (int) $data['snippet_duration'] : 60;
+    $duration = isset($data['snippet_duration']) ? (int)$data['snippet_duration'] : 30;
 
     $multiplier = match ($duration) {
-        10 => 1.5,
-        30 => 1.25,
-        60 => 1,
+        5 => 1.5,
+        15 => 1.25,
+        30 => 1,
         default => 1
     };
 
     $points = 0;
-
-    if (strtolower(trim($data['guessed_title'])) === strtolower($song->title)) {
-        $points += 1 * $multiplier;
-    }
-    if (strtolower(trim($data['guessed_artist'])) === strtolower($song->artist)) {
-        $points += 1 * $multiplier;
-    }
-    if (strtolower(trim($data['guessed_album'])) === strtolower($song->album)) {
-        $points += 1 * $multiplier;
-    }
-    if ((int) $data['guessed_year'] === (int) $song->release_year) {
-        $points += 1 * $multiplier;
-    }
+    if (strtolower(trim($data['guessed_title'])) === strtolower($song->title)) $points += 1 * $multiplier;
+    if (strtolower(trim($data['guessed_artist'])) === strtolower($song->artist)) $points += 1 * $multiplier;
+    if (strtolower(trim($data['guessed_album'])) === strtolower($song->album)) $points += 1 * $multiplier;
+    if ((int)$data['guessed_year'] === (int)$song->release_year) $points += 1 * $multiplier;
 
     $points = round($points);
 
@@ -89,9 +149,7 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         'updated_at' => now(),
     ]);
 
-    DB::table('game_sessions')
-        ->where('id', $data['game_session_id'])
-        ->increment('score', $points);
+    DB::table('game_sessions')->where('id', $data['game_session_id'])->increment('score', $points);
 
     return response()->json([
         'points_awarded' => $points,
@@ -100,16 +158,11 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
             'artist' => $song->artist,
             'album' => $song->album,
             'release_year' => $song->release_year,
-        ],
+        ]
     ]);
 });
 
 Route::get('/game/score/{game_session_id}', function ($game_session_id) {
-    $score = DB::table('game_sessions')
-        ->where('id', $game_session_id)
-        ->value('score');
-
+    $score = DB::table('game_sessions')->where('id', $game_session_id)->value('score');
     return response()->json(['score' => $score]);
 });
-
-

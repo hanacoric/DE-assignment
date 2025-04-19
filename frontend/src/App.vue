@@ -4,9 +4,13 @@
     <GuessSong
       v-if="gameStarted && !showFinal"
       :genre="genre"
+      :deezerGenreId="deezerGenreId"
       :gameSessionId="gameSessionId"
       @gameFinished="handleGameFinished"
     />
+
+
+
     <FinalScore
       v-if="showFinal"
       :score="finalScore"
@@ -26,16 +30,19 @@ export default {
   data() {
     return {
       genre: null,
+      deezerGenreId: null,
       gameSessionId: null,
       gameStarted: false,
       showFinal: false,
       finalScore: 0,
-      maxRounds: 5
+      maxRounds: 5,
     };
   },
+
   methods: {
-    handleGameStart({ genre, gameSessionId }) {
+    handleGameStart({ genre, deezerGenreId, gameSessionId }) {
       this.genre = genre;
+      this.deezerGenreId = deezerGenreId;
       this.gameSessionId = gameSessionId;
       this.gameStarted = true;
     },

@@ -2,7 +2,7 @@
   <div class="final-score-box">
     <h1>Game Over!</h1>
     <p>You completed {{ rounds }} rounds!</p>
-    <p class="score">Final Score: {{ score }} / {{ rounds * 6 }}</p>
+    <p class="score">Final Score: {{ score }} / {{ rounds * 3 }}</p>
     <button @click="$emit('restart')" class="play-again">Play Again</button>
   </div>
 </template>

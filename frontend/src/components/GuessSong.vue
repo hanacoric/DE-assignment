@@ -4,12 +4,7 @@
       <template v-if="song">
         <h2 class="text-xl font-bold mb-2">Listen and Guess!</h2>
 
-        <label class="block mb-2 font-semibold">Choose your snippet length:</label>
-        <select v-model="snippetDuration" class="mb-4 p-2 border rounded">
-          <option :value="5">5 seconds (Hard)</option>
-          <option :value="15">15 seconds (Medium)</option>
-          <option :value="30">30 seconds (Easy)</option>
-        </select>
+        <p class="timer">Time left: {{ timer }}s</p>
 
 
         <audio
@@ -24,10 +19,14 @@
         <form @submit.prevent="submitGuess" class="form-grid">
           <input v-model="guess.guessed_title" type="text" placeholder="Song title" class="input" />
           <input v-model="guess.guessed_artist" type="text" placeholder="Artist" class="input" />
-          <input v-model="guess.guessed_album" type="text" placeholder="Album" class="input" />
-          <input v-model="guess.guessed_year" type="number" placeholder="Year" class="input" />
-          <button type="submit" class="submit-btn">Submit Guess</button>
+
+          <div class="full-width">
+            <input v-model="guess.guessed_album" type="text" placeholder="Album" class="input" />
+          </div>
+
+          <button type="submit" class="submit-btn" :disabled="!!result">Submit Guess</button>
         </form>
+
 
         <div v-if="result" class="mt-4">
           <p>You got {{ result.points_awarded }} point(s)!</p>
@@ -39,13 +38,20 @@
             <div class="answer-block">
               <strong>Artist:</strong> {{ result.correct.artist }}
             </div>
-            <div class="answer-block">
+
+            <div class="answer-block full-width">
               <strong>Album:</strong> {{ result.correct.album }}
             </div>
-            <div class="answer-block">
-              <strong>Year:</strong> {{ result.correct.release_year }}
-            </div>
-          </div>
+
+        </div>
+          <button
+            v-if="result && round === maxRounds && !finished"
+            @click="showFinalScore"
+            class="mt-4 bg-purple-600 text-white px-4 py-2 rounded"
+          >
+            See Final Score
+          </button>
+
 
 
         </div>
@@ -62,7 +68,7 @@
       </template>
 
       <template v-else>
-        <p class="text-center text-purple-800 text-lg">🎧 Loading a song...</p>
+        <p class="loading">Loading a song...</p>
       </template>
     </div>
   </div>
@@ -73,8 +79,7 @@ import axios from 'axios';
 
 export default {
   name: 'GuessSong',
-  props: ['genre', 'deezerGenreId', 'gameSessionId'],
-
+  props: ['genre', 'deezerGenreId', 'gameSessionId', 'snippetDuration'],
 
   data() {
     return {
@@ -82,16 +87,16 @@ export default {
       guess: {
         guessed_title: '',
         guessed_artist: '',
-        guessed_album: '',
-        guessed_year: ''
+        guessed_album: ''
       },
       result: null,
-      snippetDuration: 10,
       round: 1,
       maxRounds: 5,
       finished: false,
       finalScore: 0,
-      usedSongIds: []
+      usedSongIds: [],
+      timer: 45,
+      timerInterval: null
     };
   },
   computed: {
@@ -110,9 +115,28 @@ export default {
     this.fetchRandomDeezerSong();
   },
   methods: {
+    resetTimer() {
+      clearInterval(this.timerInterval);
+      this.timer = 45;
+      this.timerInterval = setInterval(() => {
+        if (this.timer > 0) {
+          this.timer--;
+        } else {
+          clearInterval(this.timerInterval);
+          this.handleTimeout();
+        }
+      }, 1000);
+    },
+
+    handleTimeout() {
+      if (!this.result) {
+        this.submitGuess();
+      }
+    },
     async fetchRandomDeezerSong() {
       const genreId = this.deezerGenreId;
       const genreName = this.genre;
+      this.resetTimer();
 
       console.log("Fetching with genreId:", genreId, "and genre:", genreName);
 
@@ -130,7 +154,6 @@ export default {
           title: song.title,
           artist: song.artist,
           album: song.album,
-          release_year: song.release_year,
           audio_snippet: song.audio_snippet
         };
 
@@ -142,10 +165,14 @@ export default {
           }
         });
 
+        this.resetTimer();
+
       } catch (err) {
         console.error('Failed to fetch song from Laravel API:', err);
         alert('Could not load song. Please try again.');
       }
+
+
     },
 
     async nextSong() {
@@ -153,19 +180,21 @@ export default {
       this.guess = {
         guessed_title: '',
         guessed_artist: '',
-        guessed_album: '',
-        guessed_year: ''
+        guessed_album: ''
       };
       this.result = null;
 
       if (this.round > this.maxRounds) return;
 
+      clearInterval(this.timerInterval);
       await this.fetchRandomDeezerSong(this.deezerGenreId);
-
-
     },
 
+
+
+
     async submitGuess() {
+      clearInterval(this.timerInterval);
       try {
         const res = await axios.post('http://127.0.0.1:8000/api/guess', {
           game_session_id: this.gameSessionId,
@@ -173,8 +202,7 @@ export default {
           snippet_duration: this.snippetDuration,
           guessed_title: this.guess.guessed_title,
           guessed_artist: this.guess.guessed_artist,
-          guessed_album: this.guess.guessed_album,
-          guessed_year: this.guess.guessed_year
+          guessed_album: this.guess.guessed_album
         });
 
         this.result = res.data;
@@ -182,21 +210,48 @@ export default {
         if (this.round === this.maxRounds) {
           this.finished = true;
 
-          const scoreRes = await axios.get(
-            `http://127.0.0.1:8000/api/game/score/${this.gameSessionId}`
-          );
-          this.finalScore = scoreRes.data.score;
+          setTimeout(async () => {
+            const scoreRes = await axios.get(
+              `http://127.0.0.1:8000/api/game/score/${this.gameSessionId}`
+            );
+            this.finalScore = scoreRes.data.score;
 
-          this.$emit('gameFinished', {
-            score: this.finalScore,
-            rounds: this.maxRounds
-          });
+            this.$emit('gameFinished', {
+              score: this.finalScore,
+              rounds: this.maxRounds
+            });
+          }, 5000); // 5 seconds delay
         }
+
       } catch (err) {
         console.error('Error submitting guess:', err);
         alert("Couldn't submit guess. Please try again.");
       }
+    },
+
+    checkTime() {
+      const audio = this.$refs.audioPlayer;
+      if (audio && audio.currentTime >= this.snippetDuration) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    },
+
+    async showFinalScore() {
+      this.finished = true;
+
+      const scoreRes = await axios.get(
+        `http://127.0.0.1:8000/api/game/score/${this.gameSessionId}`
+      );
+      this.finalScore = scoreRes.data.score;
+
+      this.$emit('gameFinished', {
+        score: this.finalScore,
+        rounds: this.maxRounds
+      });
     }
+
+
   }
 };
 </script>
@@ -223,6 +278,20 @@ body {
   padding: 1.5rem;
 }
 
+.full-width {
+  grid-column: span 2;
+  display: flex;
+  justify-content: center;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  color: #7a007a;
+}
+
 .guess-game {
   max-width: 700px;
   width: 100%;
@@ -234,6 +303,11 @@ body {
   text-align: center;
 }
 
+.timer{
+  font-size: 20px;
+  color: #7a007a;
+  margin-bottom: 20px;
+}
 .guess-game h2 {
   font-size: 26px;
   margin-bottom: 20px;

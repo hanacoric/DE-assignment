@@ -6,6 +6,7 @@
       :genre="genre"
       :deezerGenreId="deezerGenreId"
       :gameSessionId="gameSessionId"
+      :snippetDuration="snippetDuration"
       @gameFinished="handleGameFinished"
     />
 
@@ -32,6 +33,7 @@ export default {
       genre: null,
       deezerGenreId: null,
       gameSessionId: null,
+      snippetDuration: 5, // default duration
       gameStarted: false,
       showFinal: false,
       finalScore: 0,
@@ -40,10 +42,11 @@ export default {
   },
 
   methods: {
-    handleGameStart({ genre, deezerGenreId, gameSessionId }) {
+    handleGameStart({ genre, deezerGenreId, gameSessionId, snippetDuration }) {
       this.genre = genre;
       this.deezerGenreId = deezerGenreId;
       this.gameSessionId = gameSessionId;
+      this.snippetDuration = snippetDuration;
       this.gameStarted = true;
     },
     handleGameFinished({ score, rounds }) {

@@ -21,7 +21,7 @@ class DeezerController extends Controller
             'New Wave' => ['Talking Heads', 'Eurythmics', 'Blondie', 'Depeche Mode', 'The Cure'],
             'Shoegaze' => ['My Bloody Valentine', 'Cocteau Twins', 'Slowdive', 'Deftones', 'TV Girl'],
             'Indie Rock' => ['Oasis', 'Blur', 'The Strokes', 'The Pixies', 'Arctic Monkeys'],
-            'Hip Hop' => ['Souls of Mischief', 'A Tribe Called Quest', 'Nas', 'MF DOOM', 'Wu-Tang Clan'],
+            'Hip Hop' => ['Souls of Mischief', 'A Tribe Called Quest', 'Nas', 'MF DOOM', 'Wu-Tang Clan']
         ];
 
         if (!isset($genreArtists[$genre])) {

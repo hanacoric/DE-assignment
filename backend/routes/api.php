@@ -18,6 +18,7 @@ Route::get('/deezer/song', function (\Illuminate\Http\Request $request) {
         1521 => ['Red Hot Chili Peppers', 'Radiohead', 'Smashing Pumpkins', 'Foo Fighters', 'Jeff Buckley'],
         999 => ['Oasis', 'Blur', 'The Strokes', 'The Pixies', 'Arctic Monkeys'],
         888 => ['Korn', 'Slipknot', 'System of a Down', 'Linkin Park', 'Limp Bizkit'],
+        133 => ['Jimi Hendrix', 'Pink Floyd', 'Jefferson Airplane', 'The Doors', 'The Beatles']
     ];
 
     if (!$genreId || !isset($artistLists[$genreId])) {
@@ -67,7 +68,6 @@ Route::get('/deezer/song', function (\Illuminate\Http\Request $request) {
             'title' => $song['title'],
             'artist' => $song['artist']['name'],
             'album' => $song['album']['title'],
-            'release_year' => substr($song['release_date'] ?? '2000', 0, 4),
             'audio_snippet' => $song['preview'],
             'genre' => $genreName,
             'created_at' => now(),
@@ -82,15 +82,9 @@ Route::get('/deezer/song', function (\Illuminate\Http\Request $request) {
         'title' => $song['title'],
         'artist' => $song['artist']['name'],
         'album' => $song['album']['title'],
-        'release_year' => substr($song['release_date'] ?? '2000', 0, 4),
         'audio_snippet' => $song['preview']
     ]);
 });
-
-
-
-
-
 
 Route::get('/ping', fn() => response()->json(['message' => 'pong']));
 
@@ -129,13 +123,39 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         default => 1
     };
 
-    $points = 0;
-    if (strtolower(trim($data['guessed_title'])) === strtolower($song->title)) $points += 1 * $multiplier;
-    if (strtolower(trim($data['guessed_artist'])) === strtolower($song->artist)) $points += 1 * $multiplier;
-    if (strtolower(trim($data['guessed_album'])) === strtolower($song->album)) $points += 1 * $multiplier;
-    if ((int)$data['guessed_year'] === (int)$song->release_year) $points += 1 * $multiplier;
+// normalization function
+    function normalizeString($value) {
+        $value = strtolower($value);
+        $value = preg_replace('/\b(remastered|deluxe|version|edition|explicit|greatest hits|best of|essential|gold|collection|anthology|singles|expanded|original recording)\b/i', '', $value);
+        $value = preg_replace('/[^a-z0-9\s]/', '', $value);
+        return trim($value);
+    }
 
-    $points = round($points);
+    $rawPoints = 0;
+
+    if (normalizeString($data['guessed_title']) === normalizeString($song->title)) {
+        $rawPoints += 1;
+    } elseif (!empty(trim($data['guessed_title'])) && str_contains(normalizeString($song->title), normalizeString($data['guessed_title']))) {
+        $rawPoints += 0.5;
+    }
+
+    if (normalizeString($data['guessed_artist']) === normalizeString($song->artist)) {
+        $rawPoints += 1;
+    } elseif (!empty(trim($data['guessed_artist'])) && str_contains(normalizeString($song->artist), normalizeString($data['guessed_artist']))) {
+        $rawPoints += 0.5;
+    }
+
+    if (normalizeString($data['guessed_album']) === normalizeString($song->album)) {
+        $rawPoints += 1;
+    } elseif (!empty(trim($data['guessed_album'])) && str_contains(normalizeString($song->album), normalizeString($data['guessed_album']))) {
+        $rawPoints += 0.5;
+    }
+
+
+    $points = (int) round(min($rawPoints, 3));
+    $points = (int) round($rawPoints * $multiplier);
+
+
 
     DB::table('guesses')->insert([
         'game_session_id' => $data['game_session_id'],
@@ -143,7 +163,6 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         'guessed_title' => $data['guessed_title'],
         'guessed_artist' => $data['guessed_artist'],
         'guessed_album' => $data['guessed_album'],
-        'guessed_year' => $data['guessed_year'],
         'points_awarded' => $points,
         'created_at' => now(),
         'updated_at' => now(),
@@ -156,11 +175,11 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         'correct' => [
             'title' => $song->title,
             'artist' => $song->artist,
-            'album' => $song->album,
-            'release_year' => $song->release_year,
+            'album' => $song->album
         ]
     ]);
 });
+
 
 Route::get('/game/score/{game_session_id}', function ($game_session_id) {
     $score = DB::table('game_sessions')->where('id', $game_session_id)->value('score');

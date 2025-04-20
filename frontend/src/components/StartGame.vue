@@ -10,6 +10,14 @@
       </option>
     </select>
 
+    <label class="block mb-2 font-semibold">Choose your snippet length:</label>
+    <select v-model="selectedDuration">
+      <option disabled value="">Snippet duration</option>
+      <option :value="5">5 seconds (Hard)</option>
+      <option :value="15">15 seconds (Medium)</option>
+      <option :value="30">30 seconds (Easy)</option>
+    </select>
+
     <button @click="startGame">Start Game</button>
 
     <p v-if="gameSessionId" class="started-text">
@@ -26,6 +34,7 @@ export default {
   data() {
     return {
       selectedGenre: '',
+      selectedDuration: 5, // default duration
       genres: [
         'Alternative Rock',
         'Psychedelic Rock',
@@ -47,7 +56,8 @@ export default {
           'Classic Rock': 77,
           'Alternative Rock': 1521,
           'Indie Rock': 999,
-          'Nu Metal': 888
+          'Nu Metal': 888,
+          'Psychedelic Rock': 133
         },
       gameSessionId: null,
     };
@@ -71,7 +81,11 @@ export default {
           genre: this.selectedGenre,
           deezerGenreId: this.genreMap[this.selectedGenre],
           gameSessionId: this.gameSessionId,
+          snippetDuration: this.selectedDuration
         });
+
+
+
 
       } catch (err) {
         console.error("Failed to start game:", err);

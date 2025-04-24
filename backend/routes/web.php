@@ -1,5 +1,7 @@
+<?php
+
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-return 'Laravel is running!';
+    return response('Laravel is running!');
 });

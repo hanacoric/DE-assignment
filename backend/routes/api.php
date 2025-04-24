@@ -1,16 +1,15 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 Route::get('/test', function () {
-    return response()->json(['message' => 'API is working']);
+    return response()->json(['message' => 'Test endpoint is working!']);
 });
 
-
-//test
-Route::get('/deezer/song', function (\Illuminate\Http\Request $request) {
+Route::get('/deezer/song', function (Request $request) {
     $genreId = $request->query('genre_id');
 
     $artistLists = [
@@ -93,8 +92,7 @@ Route::get('/deezer/song', function (\Illuminate\Http\Request $request) {
 
 Route::get('/ping', fn() => response()->json(['message' => 'pong']));
 
-
-Route::post('/game/start', function (\Illuminate\Http\Request $request) {
+Route::post('/game/start', function (Request $request) {
     $genre = $request->input('genre');
 
     $id = DB::table('game_sessions')->insertGetId([
@@ -107,7 +105,7 @@ Route::post('/game/start', function (\Illuminate\Http\Request $request) {
     return response()->json(['game_session_id' => $id]);
 });
 
-Route::post('/guess', function (\Illuminate\Http\Request $request) {
+Route::post('/guess', function (Request $request) {
     $data = $request->all();
 
     if (!isset($data['song_id'])) {
@@ -180,7 +178,6 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         ]
     ]);
 });
-
 
 Route::get('/game/score/{game_session_id}', function ($game_session_id) {
     $score = DB::table('game_sessions')->where('id', $game_session_id)->value('score');

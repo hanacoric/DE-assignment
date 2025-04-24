@@ -4,6 +4,11 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
+Route::get('/test', function () {
+    return response()->json(['message' => 'API is working']);
+});
+
+
 
 Route::get('/deezer/song', function (\Illuminate\Http\Request $request) {
     $genreId = $request->query('genre_id');

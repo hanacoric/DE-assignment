@@ -123,39 +123,35 @@ Route::post('/guess', function (\Illuminate\Http\Request $request) {
         default => 1
     };
 
-// normalization function
-    function normalizeString($value) {
+    $normalize = function ($value) {
         $value = strtolower($value);
         $value = preg_replace('/\b(remastered|deluxe|version|edition|explicit|greatest hits|best of|essential|gold|collection|anthology|singles|expanded|original recording)\b/i', '', $value);
         $value = preg_replace('/[^a-z0-9\s]/', '', $value);
         return trim($value);
-    }
+    };
 
     $rawPoints = 0;
 
-    if (normalizeString($data['guessed_title']) === normalizeString($song->title)) {
+    if ($normalize($data['guessed_title']) === $normalize($song->title)) {
         $rawPoints += 1;
-    } elseif (!empty(trim($data['guessed_title'])) && str_contains(normalizeString($song->title), normalizeString($data['guessed_title']))) {
+    } elseif (str_contains($normalize($song->title), $normalize($data['guessed_title']))) {
         $rawPoints += 0.5;
     }
 
-    if (normalizeString($data['guessed_artist']) === normalizeString($song->artist)) {
+    if ($normalize($data['guessed_artist']) === $normalize($song->artist)) {
         $rawPoints += 1;
-    } elseif (!empty(trim($data['guessed_artist'])) && str_contains(normalizeString($song->artist), normalizeString($data['guessed_artist']))) {
+    } elseif (str_contains($normalize($song->artist), $normalize($data['guessed_artist']))) {
         $rawPoints += 0.5;
     }
 
-    if (normalizeString($data['guessed_album']) === normalizeString($song->album)) {
+    if ($normalize($data['guessed_album']) === $normalize($song->album)) {
         $rawPoints += 1;
-    } elseif (!empty(trim($data['guessed_album'])) && str_contains(normalizeString($song->album), normalizeString($data['guessed_album']))) {
+    } elseif (str_contains($normalize($song->album), $normalize($data['guessed_album']))) {
         $rawPoints += 0.5;
     }
 
-
-    $points = (int) round(min($rawPoints, 3));
+    $rawPoints = min($rawPoints, 3);
     $points = (int) round($rawPoints * $multiplier);
-
-
 
     DB::table('guesses')->insert([
         'game_session_id' => $data['game_session_id'],
